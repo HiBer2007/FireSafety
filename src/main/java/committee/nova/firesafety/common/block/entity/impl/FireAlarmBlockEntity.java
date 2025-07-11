@@ -45,16 +45,31 @@ public class FireAlarmBlockEntity extends RecordableDeviceBlockEntity {
         }
         level.setBlockAndUpdate(worldPosition, state.setValue(ONFIRE, true));
         fireStartedTick++;
-        if (level.getDayTime() % 100 != 25) return level.getDayTime() % 50 == 0;
-        final var msg = Component.translatable("msg.firesafety.device.fire_detected",
+        // === 核心修复：使用独立计时器替代游戏时间 ===
+        boolean shouldAlert = false;
+        int alertInterval = 100; // 默认每5秒(100tick)提醒一次
+    
+        // 首次检测到火灾时立即发送警报
+        if (fireStartedTick == 1) {
+            shouldAlert = true;
+        }
+        // 后续周期性提醒
+        else if (fireStartedTick > 1 && fireStartedTick % alertInterval == 0) {
+            shouldAlert = true;
+        }
+        if (shouldAlert) {
+            
+            final var msg = Component.translatable("msg.firesafety.device.fire_detected",
                 vecToIntString(worldPosition), c[0], c[1], (state.hasProperty(WATERED) && !state.getValue(WATERED)) ? Component.translatable("phrase.firesafety.insufficient_water").getString() : "");
-        toListeningPlayers(level, player -> {
-            if (notifyByChat.get()) notifyServerPlayer(player, msg);
-            else displayClientMessage(player, msg);
-        });
-        toListeningPlayers(level, player -> playSoundForThisPlayer(player, getSound(0), .5F, 1F));
-        level.playSound(null, worldPosition, getSound(0), BLOCKS, .8F, 1F);
-        return false;
+            toListeningPlayers(level, player -> {
+                if (notifyByChat.get()) notifyServerPlayer(player, msg);
+                else displayClientMessage(player, msg);
+            });
+            toListeningPlayers(level, player -> playSoundForThisPlayer(player, getSound(0), .5F, 1F));
+            level.playSound(null, worldPosition, getSound(0), BLOCKS, .8F, 1F);
+            return false;
+        }
+        return true;
     }
 
     private int[] fireSourceCount() {
